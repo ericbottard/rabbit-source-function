@@ -1,0 +1,58 @@
+= Rabbit Source
+
+This repository contains a prototype RabbitMQ "source", implemented as a long-running function.
+
+Very much WIP.
+
+Quick how-to, assuming newest riff installed with the streaming component (including keda).
+
+1. Install or use an existing rabbit, fronted by a service named `rabbit`. For example
+[source, bash]
++
+----
+ kubectl apply -f https://raw.githubusercontent.com/ericbottard/rabbit-source-function/master/rabbit.yaml
+----
+Create a queue named `my-queue` in that rabbit instance. This will be where rabbit messages are read from.
+
+1. Install or use an existing kafka, fronted by a service. For example
++
+[source, bash]
+----
+ kubectl apply -f https://raw.githubusercontent.com/ericbottard/streaming-processor-poc/master/kafka-broker.yaml
+----
+
+1. Install a KafkaProvider pointing to that Kafka service. For example
++
+[source, bash]
+----
+kubectl apply -f https://raw.githubusercontent.com/projectriff/system/master/config/streaming/samples/streaming_v1alpha1_kafka-provider.yaml
+----
+
+1. Create a function from this repository
++
+[source, bash]
+----
+riff function create rabbit --git-repo https://github.com/ericbottard/rabbit-source-function --tail
+----
+
+1. Create two streams. The `in` stream is unused in this "source" setup but still currently required:
++
+[source, bash]
+----
+riff streaming stream create in --provider franz-kafka-provisioner --content-type text/plain
+riff streaming stream create out --provider franz-kafka-provisioner --content-type text/plain
+----
+
+1. Instanciate a streaming processor to bind the function to those streams:
++
+[source, bash]
+----
+riff streaming processor create rabbit --function-ref rabbit --input in --output out
+----
+
+1. Read messages out of the `out` stream, for example using the http://github.com/projectriff-samples/liiklus-client[liiklus client]:
++
+[source, bash]
+----
+java -jar target/liiklus-client-1.0.0-SNAPSHOT.jar --consumer franz-kafka-liiklus.default:6565 default_out
+----
