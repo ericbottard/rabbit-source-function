@@ -48,18 +48,13 @@ public class RabbitSource {
     @Bean
     public Function<Flux<byte[]>, Flux<String>> source() {
         return o -> {
-            //System.out.println("I'm being invoked at " + new Date());
-            //return Flux.interval(Duration.ofSeconds(1L)).map(l -> l.toString());
-
             Flux<String> resultFlux = Flux.create(sink -> {
-                output.subscribe(new MessageHandler() {
-                    @Override
-                    public void handleMessage(Message<?> message) throws MessagingException {
-                        //System.out.println("Received " + message + " from rabbit");
-                        sink.next(new String(((byte[]) message.getPayload()), StandardCharsets.UTF_8));
-                    }
+                MessageHandler handler = message -> sink.next(new String(((byte[]) message.getPayload()), StandardCharsets.UTF_8));
+                output.subscribe(handler);
+                o.doOnComplete(() -> {
+                    sink.complete();
+                    output.unsubscribe(handler);
                 });
-                o.doOnComplete(() -> sink.complete());
             })/*.doOnNext(System.out::println).cast(String.class).doOnSubscribe(s -> System.out.println("Subscribed via " + s))*/;
             return resultFlux;
         };
